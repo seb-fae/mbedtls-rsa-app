@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+
 
 #define mbedtls_printf       printf
 
@@ -44,8 +46,6 @@
 #include "mbedtls/bignum.h"
 #include "mbedtls/rsa.h"
 
-#include <stdio.h>
-#include <string.h>
 #endif
 
 #define KEY_SIZE 2048
@@ -66,6 +66,10 @@ int app_rsa_key_gen( void )
 
 mbedtls_mpi N, P, Q, D, E, DP, DQ, QP;
 unsigned char encrypted_buf[512];
+
+uint32_t time_tick;
+uint32_t time_diff_tick;
+uint32_t time_diff_ms;
 
 void app_rsa_key_gen( void )
 {
@@ -98,6 +102,8 @@ void app_rsa_key_gen( void )
     mbedtls_printf( " ok\n  . Generating the RSA key [ %d-bit ]...", KEY_SIZE );
 
 
+    time_tick = sl_sleeptimer_get_tick_count();
+
     if( ( ret = mbedtls_rsa_gen_key( &rsa, mbedtls_ctr_drbg_random, &ctr_drbg, KEY_SIZE,
                                      EXPONENT ) ) != 0 )
     {
@@ -105,7 +111,10 @@ void app_rsa_key_gen( void )
         goto exit;
     }
 
-    mbedtls_printf( " ok\n  . Exporting the public  key ...." );
+    time_diff_tick = sl_sleeptimer_get_tick_count() - time_tick;
+    time_diff_ms = sl_sleeptimer_tick_to_ms(time_diff_tick);
+
+    mbedtls_printf( " ok  clock cycles: %ld, time: %" PRIu32 " ms.\n\n Exporting the public  key ....", time_diff_tick, time_diff_ms );
 
 
     if( ( ret = mbedtls_rsa_export    ( &rsa, &N, &P, &Q, &D, &E ) ) != 0 ||
@@ -252,8 +261,9 @@ void app_rsa_encrypt()
     /*
      * Calculate the RSA encryption of the hash.
      */
-    mbedtls_printf( "\n  . Generating the RSA encrypted value" );
+    mbedtls_printf( "\n  . Generating the RSA encrypted value... " );
 
+    time_tick = sl_sleeptimer_get_tick_count();
 
     ret = mbedtls_rsa_pkcs1_encrypt( &rsa, mbedtls_ctr_drbg_random,
                                      &ctr_drbg, strlen( data_to_encrypt ), input, encrypted_buf);
@@ -263,6 +273,9 @@ void app_rsa_encrypt()
                         ret );
         return;
     }
+
+    time_diff_tick = sl_sleeptimer_get_tick_count() - time_tick;
+    time_diff_ms = sl_sleeptimer_tick_to_ms(time_diff_tick);
 
 #ifdef FILESYSTEM
     /*
@@ -282,7 +295,7 @@ void app_rsa_encrypt()
 
     mbedtls_printf( "\n  . Done (created \"%s\")\n\n", "result-enc.txt" );
 #endif
-    mbedtls_printf( " ok \n\n");
+    mbedtls_printf( " ok clock cycles: %ld, time: %" PRIu32 " ms.\n\n", time_diff_tick, time_diff_ms );
 
 exit:
     mbedtls_ctr_drbg_free( &ctr_drbg );
@@ -406,8 +419,9 @@ void app_rsa_decrypt(  )
     /*
      * Decrypt the encrypted RSA data and print the result.
      */
-    mbedtls_printf( "\n  . Decrypting the encrypted data" );
+    mbedtls_printf( "\n  . Decrypting the encrypted data..." );
 
+    time_tick = sl_sleeptimer_get_tick_count();
 
     ret = mbedtls_rsa_pkcs1_decrypt( &rsa, mbedtls_ctr_drbg_random,
                                             &ctr_drbg, &i,
@@ -419,7 +433,10 @@ void app_rsa_decrypt(  )
         goto exit;
     }
 
-    mbedtls_printf( "\n  . OK\n\n" );
+    time_diff_tick = sl_sleeptimer_get_tick_count() - time_tick;
+    time_diff_ms = sl_sleeptimer_tick_to_ms(time_diff_tick);
+
+    mbedtls_printf( " ok clock cycles: %ld, time: %" PRIu32 " ms. \n\n ", time_diff_tick, time_diff_ms );
 
     mbedtls_printf( "The decrypted result is: '%s'\n\n", result );
 
